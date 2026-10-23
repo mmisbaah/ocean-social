@@ -1,4 +1,4 @@
-# OceanSocial · Raajje Explorers
+# ocean-social · Raajje Explorers
 
 Atollingo's Social Studies app for Grades 1–6, served at **social.atollingo.com**. It uses the same theme, layout, avatars and beach art as the Atollingo hub (OceanHub) and runs on the same vinext + Cloudflare Workers setup as the other Atollingo apps.
 
@@ -18,7 +18,7 @@ Children pick a grade every time they log in. Progress stays in the browser (`lo
 
 On `social.atollingo.com`, "Use my Atollingo learner" borrows the learner chosen at atollingo.com through the hub's `/bridge` page (exact-origin `postMessage`, channel `atollingo-v1`). Each lesson finished for the first time, and each daily challenge, is sent to the hub as an `external` completion worth 1–3 stars. Results that can't be sent are queued and retried on the next connection.
 
-The hub must list `https://social.atollingo.com` as an allowed origin and accept `OceanSocial` as an app name (see the matching OceanHub change).
+The hub must list `https://social.atollingo.com` as an allowed origin and accept `OceanSocial` as an app name (see the `add-oceansocial` branch in OceanHub).
 
 ## Project layout
 
@@ -40,7 +40,7 @@ npm run lint
 
 ## Deploy
 
-Pushing to `main` runs `.github/workflows/cloudflare.yml`, which builds, tests and deploys the Worker `atollingo-oceansocial`. The repository needs the `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets (the same ones the other Atollingo repos use), and `social.atollingo.com` must be added as a custom domain for the Worker in Cloudflare.
+Not set up yet. Pushes and pull requests run `.github/workflows/ci.yml`, which only builds, tests and lints; nothing is deployed. When the app is ready to go live, add a Cloudflare deploy step like the other Atollingo repos (Worker `atollingo-oceansocial`, secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`) and attach the `social.atollingo.com` custom domain.
 
 ## Content status
 
