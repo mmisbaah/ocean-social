@@ -6,6 +6,7 @@ Atollingo's Social Studies app for Grades 1–6, served at **social.atollingo.co
 
 - **60 lessons**, 10 per grade, covering six strands: Culture and Identity; People, Places and Environment; The Economic World; Time, Continuity and Change; Active Citizenship; Investigating and Communicating.
 - **Quizzes** with four question types: multiple choice, tap-the-map (a schematic map of the atolls with the Equator), put-in-order timelines, and sort-into-groups.
+- **Visuals in the lessons**: a mascot guide for each strand (from the OceanLearn family) on reef, lagoon and beach scenes, plus 73 diagrams across the lesson pages: maps of the atolls, timelines, an island cross-section, how an atoll forms, the flag, monsoon winds, a day-and-prayer-times slider, rufiyaa notes with a change calculator, the three branches of government, a groundwater lens, rising seas, a bar-graph builder, a budget planner, Thaana letters and more. Most are interactive.
 - **Daily challenge** with spaced review: missed questions come back after 1, 3 and 7 days.
 - **Rewards**: stars, a reef shop, 11 badges and a certificate for each finished grade.
 - **Parents area** (behind a times-table gate): weekly summary, minutes learning, missed questions with the child's answer, progress by strand and grade, and which grades a child may open.
@@ -26,7 +27,7 @@ The hub must list `https://social.atollingo.com` as an allowed origin and accept
 - `app/raajje/app.js`: the learning app (plain DOM code, rendered into the shell)
 - `app/SocialApp.tsx`, `app/layout.tsx`: the page shell, header and "Back to Atollingo" bar
 - `app/globals.css`: the Atollingo theme
-- `public/assets/`: beach banner, dolphin, the 18 hub avatars, app icons
+- `public/assets/`: beach banner, reef and lagoon scenes, mascot guides, the 18 hub avatars, app icons
 - `public/sw.js`: offline cache
 
 ## Develop

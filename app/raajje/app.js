@@ -48,6 +48,8 @@ const mx = lon => (lon-MAP.lon0)/(MAP.lon1-MAP.lon0)*100;
 const my = lat => (MAP.lat0-lat)/(MAP.lat0-MAP.lat1)*100;
 const IMG = {beach:"/assets/beach.webp", dolphin:"/assets/dolphin.webp"};
 for(let i=1;i<=18;i++){ const id = "avatar-" + String(i).padStart(2,"0"); IMG[id] = "/assets/avatars/" + id + ".webp"; }
+for(const g of ["turtle","turtle2","crab","dolphin","coconut","starfish"]) IMG["guide-" + g] = "/assets/guides/guide-" + g + ".webp";
+IMG["scene-beach"] = IMG.beach; IMG["scene-lagoon"] = "/assets/scene-lagoon.webp"; IMG["scene-reef"] = "/assets/scene-reef.webp";
 const AVATARS = Array.from({length:18}, (_,i) => "avatar-" + String(i+1).padStart(2,"0"));
 function avHTML(a, size){ return `<span class="av ${size||""}" aria-hidden="true">${IMG[a] ? `<img src="${IMG[a]}" alt="">` : esc(a||"🙂")}</span>`; }
 const PASS = 0.6; // a lesson counts as finished at 60% or better
@@ -394,19 +396,279 @@ function vLessons(app){
   app.querySelectorAll("[data-lesson]").forEach(b => b.onclick = () => go("lesson", {id:b.dataset.lesson, i:0, t0:Date.now()}));
 }
 
+/* ---------- Lesson visuals: mascots, scenes and interactive diagrams ---------- */
+/* each strand has a mascot guide from the Atollingo family */
+const GUIDES = {culture:["coconut","Coconut"], place:["dolphin","Dolphin"], econ:["crab","Crab"], time:["turtle","Turtle"], citizen:["starfish","Starfish"], inquiry:["turtle2","Turtle"]};
+const SCENES = ["beach","lagoon","reef"];
+const guideImg = k => IMG["guide-" + (GUIDES[k] || GUIDES.place)[0]];
+
+/* which visual goes with which lesson page: "lessonId#pageIndex" */
+const VIZ = {
+  "g1-me#3":{t:"compare", cols:[["Different","🧒🏽 Our faces","🎵 Our voices","⚽ Our favourite things"],["The same","🍚 We all need food","❤️ We all need love","🤝 We all need friends"]]},
+  "g1-places#0":{t:"tiles", items:[["🍳","Kitchen","We cook here."],["🛏️","Bedroom","We sleep here."],["🚿","Bathroom","We wash here."],["🛋️","Living room","We sit together."]]},
+  "g1-places#1":{t:"tiles", items:[["🏫","Classroom","We learn here."],["📚","Library","We borrow books."],["🛝","Playground","We play here."],["🍱","Canteen","We eat here."]]},
+  "g1-needs#1":{t:"compare", cols:[["Needs","🍚 Food","💧 Water","👕 Clothes","🏠 A home"],["Wants","🧸 Toys","🍭 Sweets","🎮 Games","🚲 A new bicycle"]]},
+  "g1-day#0":{t:"day"},
+  "g1-day#3":{t:"flow", loop:true, steps:[["☀️","Sunday"],["📘","Monday"],["📗","Tuesday"],["📙","Wednesday"],["📕","Thursday"],["🕌","Friday"],["🏖️","Saturday"]]},
+  "g1-kind#2":{t:"tiles", items:[["🙏","Please","When we ask for something."],["😊","Thank you","When someone helps us."],["💬","Shukuriyyaa","Thank you in Dhivehi."],["🤗","Sorry","When we make a mistake."]]},
+  "g1-senses#0":{t:"tiles", items:[["👀","Seeing","I see the blue sea."],["👂","Hearing","I hear the waves."],["👃","Smelling","I smell the fish curry."],["👅","Tasting","I taste a sweet mango."],["✋","Touching","I touch the soft sand."]]},
+  "g1-feelings#0":{t:"tiles", items:[["😊","Happy","Smile and share it!"],["😢","Sad","It’s OK to cry. Talk to someone."],["😠","Angry","Stop. Take a deep breath."],["😨","Scared","Tell a grown-up you trust."]]},
+  "g1-weather#0":{t:"tiles", items:[["☀️","Sunny","Wear a hat and drink water."],["🌧️","Rainy","Take an umbrella."],["💨","Windy","Big waves on the sea."],["⛈️","Stormy","Stay inside. No swimming."]]},
+  "g1-helpers#0":{t:"tiles", items:[["👩‍🏫","Teacher","Helps us learn."],["🧑‍💼","Principal","Looks after the school."],["🧹","Cleaner","Keeps school clean."],["💂","Guard","Keeps the gate safe."]]},
+  "g1-growing#0":{t:"flow", steps:[["👶","Baby"],["🧒","Toddler"],["🎒","School child"],["🧑","Grown-up"]]},
+  "g2-family#1":{t:"family"},
+  "g2-family#4":{t:"thaana", words:[["ދިވެހި","Dhivehi"],["ރާއްޖެ","Raajje (the Maldives)"]]},
+  "g2-island#0":{t:"map", places:[], note:"Each oval is an atoll: a ring of reef with many small islands."},
+  "g2-island#2":{t:"island"},
+  "g2-jobs#0":{t:"tiles", items:[["🎣","Fisherman","Catches tuna at sea."],["🧑‍🌾","Farmer","Grows bananas and chillies."],["👩‍🏫","Teacher","Helps us learn."],["🧑‍⚕️","Doctor","Looks after sick people."],["🏪","Shopkeeper","Sells things we use."]]},
+  "g2-then#0":{t:"compare", cols:[["Long ago","⛵ Sail dhoni","🪔 Oil lamp","🌴 Palm-leaf roof","🐚 Games with shells"],["Now","🚤 Dhoni with an engine","💡 Electric light","🏠 Metal or concrete roof","📱 Games on tablets"]]},
+  "g2-rules#1":{t:"tiles", items:[["🦺","Life jacket","Wear one on every boat."],["🧑‍🤝‍🧑","Swim with an adult","Never swim alone."],["🌊","Reef edge","Stay away from strong currents."],["⛑️","Helmet","Wear one on a motorbike."]]},
+  "g2-questions#0":{t:"tiles", items:[["🧑","Who?","Asks about a person."],["📦","What?","Asks about a thing."],["📍","Where?","Asks about a place."],["⏰","When?","Asks about a time."],["💭","Why?","Asks for a reason."],["🔧","How?","Asks about the way."]]},
+  "g2-food#0":{t:"tiles", items:[["🐟","Mas huni","Tuna, coconut, onion, chilli."],["🫓","Roshi","A flat bread."],["🍛","Mas riha","Fish curry with rice."],["🥟","Hedhikaa","Snacks with tea."]]},
+  "g2-coconut#0":{t:"parts", center:"🌴", parts:[["🍃 Leaves","Dried leaves (cadjan) made roofs and fences."],["🥥 Fruit","Coconut water to drink, coconut milk for curry."],["🪢 Husk","Twisted into strong coir rope."],["🪵 Trunk","Wood for building traditional dhonis."]]},
+  "g2-shop#2":{t:"money"},
+  "g2-months#0":{t:"flow", loop:true, steps:[["❄️","Jan"],["💌","Feb"],["🌱","Mar"],["🌤️","Apr"],["🌺","May"],["🌧️","Jun"],["🌊","Jul"],["🇲🇻","Aug"],["🍂","Sep"],["🎃","Oct"],["🌙","Nov"],["🎆","Dec"]]},
+  "g3-celebrate#3":{t:"tiles", items:[["🇲🇻","Independence Day","26 July · since 1965"],["🛡️","National Day","1 Rabi’ al-Awwal (Islamic calendar)"],["🏛️","Republic Day","11 November · since 1968"]]},
+  "g3-sea#0":{t:"tiles", items:[["🐢","Sea turtle","Protected by law."],["🦈","Reef shark","Shark fishing banned since 2010."],["🐠","Reef fish","Thousands of kinds live on reefs."],["🐙","Octopus","Hides in coral holes."]]},
+  "g3-market#0":{t:"flow", steps:[["🎣","Caught at sea"],["⚓","Landed at the harbour"],["🏪","Sold at the market"],["🍛","Cooked at home"]]},
+  "g3-market#3":{t:"money"},
+  "g3-longago#0":{t:"timeline", events:[[1153,"Islam","The Maldives embraces Islam."],[1658,"Hukuru Miskiy","The Old Friday Mosque is built of coral stone."],[1965,"Independence","Full independence on 26 July."]]},
+  "g3-symbols#0":{t:"flag"},
+  "g3-maps#0":{t:"map", places:["Haa Alif","Malé","Addu City"], note:"A map shows islands from above, like a bird."},
+  "g3-maps#3":{t:"compass"},
+  "g3-community#1":{t:"tiles", items:[["⚓","Harbour","Keeping it working."],["🛣️","Roads","Fixing island roads."],["🗑️","Waste","Collecting rubbish."],["🗳️","Elected","Chosen by island people."]]},
+  "g3-waste#2":{t:"flow", loop:true, steps:[["📉","Reduce","Use less."],["🔁","Reuse","Use again."],["♻️","Recycle","Make into something new."]]},
+  "g3-transport#0":{t:"tiles", items:[["⛵","Dhoni","Traditional boat."],["🚤","Speedboat","Fast between islands."],["⛴️","Ferry","Fixed routes and times."],["🛩️","Seaplane","Lands on water."]]},
+  "g3-transport#4":{t:"map", places:["Malé"], note:"The Sinamalé Bridge joins Malé to Hulhulé, next door."},
+  "g3-heroes#0":{t:"timeline", events:[[1153,"Abu al-Barakat","Helps bring Islam, according to tradition."],[1558,"Ali Rasgefaanu","Dies fighting Portuguese invaders in Malé."],[1573,"Muhammad Thakurufaanu","Frees the Maldives from Portuguese rule."]]},
+  "g4-traditions#2":{t:"map", places:["Thulhaadhoo"], note:"Thulhaadhoo in Baa Atoll is famous for lacquer work."},
+  "g4-atolls#0":{t:"map", places:["Haa Alif","Malé","Addu City"], note:"About 1,190 islands in 26 natural atolls."},
+  "g4-atolls#3":{t:"map", places:["Huvadhoo","Fuvahmulah","Addu City"], note:"The Equator runs between Huvadhoo and Fuvahmulah."},
+  "g4-atolls#4":{t:"sealevel"},
+  "g4-goods#3":{t:"compare", cols:[["Imports (come in)","🍚 Rice","⛽ Fuel","🧱 Building materials","💊 Medicine"],["Exports (go out)","🐟 Tuna","🐠 Other fish","",""]]},
+  "g4-timelines#0":{t:"timeline", events:[[1153,"Islam","The Maldives embraces Islam."],[1573,"Freedom","Bodu Thakurufaanu frees the country."],[1965,"Independence","26 July."],[1968,"Republic","11 November."]]},
+  "g4-rights#2":{t:"tiles", items:[["🎒","Education","Going to school."],["🩺","Health","Care when sick."],["⚽","Play","Time to play and rest."],["🛡️","Safety","Protection from harm."],["🗣️","Be heard","Your views matter."]]},
+  "g4-sources#1":{t:"compare", cols:[["Fact (can be checked)","🏙️ Malé is the capital.","📅 A week has seven days.","🌊 The Maldives is in the Indian Ocean."],["Opinion (what someone thinks)","😋 Garudhiya is the best food.","⚽ Football is the best sport.","🏙️ Malé is the best city."]]},
+  "g4-islam#1":{t:"day"},
+  "g4-atollform#0":{t:"atoll"},
+  "g4-farming#1":{t:"tiles", items:[["🍌","Bananas",""],["🥭","Papaya",""],["🌶️","Chillies",""],["🍉","Watermelon",""],["🍈","Breadfruit",""]]},
+  "g4-water#1":{t:"groundwater"},
+  "g5-thaana#3":{t:"thaana", letters:true},
+  "g5-weather#1":{t:"monsoon"},
+  "g5-tourism#2":{t:"timeline", events:[[1972,"First resort","Tourism begins."],[2009,"Guesthouses","Local islands welcome visitors (around this time)."]]},
+  "g5-history#0":{t:"timeline", events:[[1153,"Islam","Embraced in 1153."],[1343,"Ibn Battuta","Lives here as a judge in the 1340s."],[1573,"Freedom","Bodu Thakurufaanu frees the country."],[1965,"Independence","26 July."],[1968,"Republic","11 November."]]},
+  "g5-government#0":{t:"branches"},
+  "g5-graphs#0":{t:"scale"},
+  "g5-graphs#3":{t:"graph"},
+  "g5-sultans#1":{t:"tiles", items:[["👑","Theemuge","An early royal dynasty."],["👑","Hilaaly","A royal dynasty."],["👑","Utheemu","Began with Muhammad Thakurufaanu."],["👑","Huraa","The last dynasty, until 1968."]]},
+  "g5-dialects#1":{t:"map", places:["Huvadhoo","Fuvahmulah","Addu City"], note:"These southern atolls have their own ways of speaking Dhivehi."},
+  "g5-energy#1":{t:"flow", steps:[["🚢","Fuel arrives by ship"],["🏭","Power station"],["⚡","Electricity"],["🏠","Homes and schools"]]},
+  "g5-energy#3":{t:"compare", cols:[["Diesel","⛽ Must be imported","💸 Costs a lot","🌫️ Pollutes the air"],["Solar","☀️ Sunshine all year","💰 Free once panels are up","🌿 Clean"]]},
+  "g5-media#1":{t:"timeline", events:[[1962,"Radio","Radio broadcasting begins."],[1978,"Television","TVM starts."],[2000,"Internet","News moves online (2000s)."]]},
+  "g6-world#2":{t:"timeline", events:[[1965,"United Nations","Joins in September 1965."],[1985,"SAARC","A founding member."]]},
+  "g6-climate#1":{t:"sealevel"},
+  "g6-climate#2":{t:"compare", cols:[["Healthy coral","🪸 Bright colours","🐠 Full of fish","🌡️ Water not too warm"],["Bleached coral","🤍 Turns white","🐟 Fish leave","🔥 Water too warm"]]},
+  "g6-money#1":{t:"budget"},
+  "g6-modern#0":{t:"timeline", events:[[1932,"Constitution","The first written constitution."],[1953,"First republic","Mohamed Amin Didi is President."],[1965,"Independence","26 July."],[1968,"Second republic","11 November."],[2008,"New constitution","First multi-party election."]]},
+  "g6-democracy#1":{t:"branches"},
+  "g6-project#0":{t:"flow", steps:[["❓","Ask a question"],["📋","Plan"],["🔎","Collect"],["🧠","Analyse"],["🎤","Present"]]},
+  "g6-protect#1":{t:"map", places:["Addu City"], note:"Gan, in Addu Atoll, had a British air base from 1957 to 1976."},
+  "g6-protect#3":{t:"timeline", events:[[1887,"Protectorate","Britain handles foreign affairs."],[1957,"Gan air base","The RAF base opens."],[1965,"Independence","Signed in Colombo, 26 July."],[1976,"Last forces leave","Gan closes."]]},
+  "g6-ocean#2":{t:"ratio"},
+  "g6-trade#1":{t:"compare", cols:[["Imports","🍚 Food","⛽ Fuel","🚗 Cars","💊 Medicine"],["Exports","🐟 Tuna","","",""]]},
+  "g6-global#1":{t:"sdg"}
+};
+
+const vizEsc = s => esc(String(s));
+function vizHTML(spec, key){
+  const w = (inner, cap, cls) => `<figure class="viz ${cls||""}" data-key="${key}">${inner}${cap ? `<figcaption>${cap}</figcaption>` : ""}</figure>`;
+  switch(spec.t){
+  case "tiles": return w(`<div class="vz-tiles">${spec.items.map(([e,t,d],k) => `<button type="button" class="vz-tile" data-tile="${k}" aria-pressed="false"><span class="e" aria-hidden="true">${e}</span><b>${vizEsc(t)}</b>${d ? `<span class="d">${vizEsc(d)}</span>` : ""}</button>`).join("")}</div>`, "Tap a picture to look closer.");
+  case "compare": return w(`<div class="vz-compare">${spec.cols.map(([h,...rows],k) => `<div class="col c${k}"><b>${vizEsc(h)}</b>${rows.filter(Boolean).map(r => `<span>${vizEsc(r)}</span>`).join("")}</div>`).join("")}</div>`);
+  case "flow": return w(`<ol class="vz-flow ${spec.loop ? "loop" : ""}">${spec.steps.map(([e,t,d]) => `<li><span class="e" aria-hidden="true">${e}</span><b>${vizEsc(t)}</b>${d ? `<span class="d">${vizEsc(d)}</span>` : ""}</li>`).join("")}</ol>`, spec.loop ? "…and round again." : "");
+  case "timeline": return w(`<div class="vz-timeline"><div class="line"></div>${spec.events.map(([y,t],k) => `<button type="button" class="ev" data-ev="${k}" aria-pressed="${k===0}" style="--p:${spec.events.length>1 ? k/(spec.events.length-1)*100 : 50}%"><i></i><b>${y}</b><span>${vizEsc(t)}</span></button>`).join("")}</div><p class="vz-detail" data-detail>${vizEsc(spec.events[0][0]+": "+spec.events[0][2])}</p>`, "Tap a date. Dates are evenly spaced, not to scale.", "wide");
+  case "map": {
+    let h = `<div class="mapbox vz-map" role="img" aria-label="Map of the Maldives${spec.places.length ? " showing "+spec.places.join(", ") : ""}">`;
+    ATOLLS.forEach(([lat,lon,aw,ah]) => h += `<span class="atoll" style="left:${mx(lon)}%;top:${my(lat)}%;width:${aw/(MAP.lon1-MAP.lon0)*100}%;height:${ah/(MAP.lat0-MAP.lat1)*100}%"></span>`);
+    h += `<span class="equator" style="top:${my(0)}%"><span>Equator</span></span><span class="compass" aria-hidden="true">▲<br>N</span>`;
+    spec.places.forEach(n => { const [lat,lon] = PLACES[n]; h += `<span class="place right" style="left:${mx(lon)}%;top:${my(lat)}%"></span><span class="place-label ${mx(lon) > 55 ? "left" : ""}" style="left:${mx(lon)}%;top:${my(lat)}%">${vizEsc(n)}</span>`; });
+    return w(h + `</div>`, vizEsc(spec.note || "") + " Map not to scale.");
+  }
+  case "island": {
+    const parts = [["ocean","🌊 Deep ocean","Deep blue water, far from land."],["reef","🪸 Coral reef","Living coral that breaks the big waves."],["lagoon","🐠 Lagoon","Shallow, calm water inside the reef."],["beach","🏖️ Beach","Soft white sand made from broken coral."],["land","🌴 Island","Where we live: homes, mosque, school."]];
+    return w(`<svg class="vz-svg" viewBox="0 0 400 150" role="img" aria-label="Side view of an island: ocean, reef, lagoon, beach and land">
+      <rect class="sky" x="0" y="0" width="400" height="70"/>
+      <rect class="p-ocean deep" data-part="ocean" x="0" y="70" width="400" height="80"/>
+      <polygon class="p-reef" data-part="reef" points="110,150 125,74 150,72 165,150"/>
+      <rect class="p-lagoon" data-part="lagoon" x="165" y="70" width="95" height="40"/>
+      <polygon class="sand" points="150,150 165,110 260,110 280,72 400,72 400,150"/>
+      <polygon class="p-beach" data-part="beach" points="260,110 280,70 315,64 300,110"/>
+      <rect class="p-land" data-part="land" x="300" y="56" width="100" height="16" rx="4"/>
+      <text x="345" y="50" font-size="26" text-anchor="middle">🌴🏠</text>
+      <text x="40" y="60" font-size="20">⛵</text>
+    </svg><div class="vz-chips">${parts.map(([k,t]) => `<button type="button" data-hl="${k}">${t}</button>`).join("")}</div><p class="vz-detail" data-detail>Tap a part of the island.</p>`, "", "island");
+  }
+  case "flag": return w(`<svg class="vz-svg flag" viewBox="0 0 300 200" role="img" aria-label="The flag of the Maldives">
+      <rect data-part="red" x="0" y="0" width="300" height="200" fill="#d21034"/>
+      <rect data-part="green" x="50" y="50" width="200" height="100" fill="#007e3a"/>
+      <circle data-part="crescent" cx="142" cy="100" r="36" fill="#fff"/><circle cx="157" cy="100" r="31" fill="#007e3a"/>
+    </svg><div class="vz-chips"><button type="button" data-say="Red: the courage of our national heroes.">🟥 Red</button><button type="button" data-say="Green: peace and progress.">🟩 Green</button><button type="button" data-say="White crescent: Islam.">🌙 Crescent</button></div><p class="vz-detail" data-detail>Tap a colour to find out what it means.</p>`);
+  case "compass": return w(`<div class="vz-compass"><span class="rose" aria-hidden="true">🧭</span>${[["N","North","Towards Haa Alif, the top of the country."],["E","East","Where the sun rises."],["S","South","Towards Addu City, the bottom of the country."],["W","West","Where the sun sets."]].map(([k,t,d]) => `<button type="button" class="d-${k}" data-say="${t}: ${d}">${k}</button>`).join("")}</div><p class="vz-detail" data-detail>Tap N, E, S or W.</p>`);
+  case "family": return w(`<div class="vz-family"><div class="gen">${["👴","👵","👴","👵"].map(e => `<span>${e}</span>`).join("")}<b>Grandparents</b></div><div class="gen">${["👨","👩"].map(e => `<span>${e}</span>`).join("")}<b>Parents</b></div><div class="gen me">${["🧒","👧","👦"].map(e => `<span>${e}</span>`).join("")}<b>Me, my brothers and sisters</b></div></div>`, "A family tree: the oldest people are at the top.");
+  case "thaana":
+    if(spec.letters){
+      const L = [["ހ","haa"],["ށ","shaviyani"],["ނ","noonu"],["ރ","raa"],["ބ","baa"],["ޅ","lhaviyani"],["ކ","kaafu"],["އ","alifu"],["ވ","vaavu"]];
+      return w(`<div class="vz-thaana letters" dir="rtl" lang="dv">${L.map(([c,n],k) => `<span><b>${c}</b><small dir="ltr" lang="en">${k+1} · ${n}</small></span>`).join("")}</div><p class="vz-rtl" aria-hidden="true">← read from right to left</p>`, "The first nine Thaana letters. They came from the Arabic numbers 1 to 9.");
+    }
+    return w(`<div class="vz-thaana">${spec.words.map(([d,e]) => `<div><b dir="rtl" lang="dv">${d}</b><span>${vizEsc(e)}</span></div>`).join("")}</div><p class="vz-rtl" aria-hidden="true">← Thaana is written from right to left</p>`);
+  case "day": {
+    const P = [["🌅","Early morning","Fajr prayer, before sunrise.",8,78],["☀️","Midday","Dhuhr prayer, sun high in the sky.",50,8],["🌤️","Afternoon","Asr prayer.",74,30],["🌇","Sunset","Maghrib prayer, as the sun sets.",92,78],["🌙","Night","Isha prayer.",50,20]];
+    const days = JSON.stringify(P.map(p => p[1] + ": " + p[2])).replace(/"/g, "&quot;");
+    return w(`<div class="vz-day" data-day="0" data-days="${days}"><div class="sky">${P.map(([e,,,x,y],k) => `<span class="sun s${k}" style="left:${x}%;top:${y}%" aria-hidden="true">${e}</span>`).join("")}<span class="ground"></span></div>
+      <input type="range" min="0" max="4" value="0" aria-label="Time of day" data-dayslider>
+      <p class="vz-detail" data-detail></p></div>`, "Slide to move through the day.");
+  }
+  case "money": return w(`<div class="vz-notes">${[[5,"#9a6fb0"],[10,"#c4553e"],[20,"#d68b2c"],[50,"#2c7d9a"],[100,"#3c8a52"],[500,"#b0476d"],[1000,"#6b6b2c"]].map(([v,c]) => `<span style="--c:${c}">${v}<small>MVR</small></span>`).join("")}</div>
+    <div class="vz-change"><label>Price of the snack <input type="range" min="1" max="19" value="7" data-price></label><div class="row"><span>Pay with:</span><button type="button" data-pay="10">10</button><button type="button" data-pay="20">20</button></div><p class="vz-detail" data-detail>Price: 7 rufiyaa. Choose a note to pay with.</p></div>`, "Rufiyaa notes. 100 laari make 1 rufiyaa.");
+  case "atoll": return w(`<div class="vz-atoll"><svg class="vz-svg" viewBox="0 0 300 140" role="img" aria-label="How an atoll forms" data-atollsvg></svg>
+    <input type="range" min="1" max="4" value="1" aria-label="Stage" data-atollslider><p class="vz-detail" data-detail></p></div>`, "Slide through the four stages.", "wide");
+  case "groundwater": return w(`<div class="vz-gw"><svg class="vz-svg" viewBox="0 0 300 150" role="img" aria-label="Fresh water floating under an island" data-gwsvg></svg>
+    <label>How much water we pump <input type="range" min="0" max="100" value="20" data-gwslider></label><p class="vz-detail" data-detail></p></div>`, "Fresh water floats on top of salty sea water under the island.");
+  case "sealevel": return w(`<div class="vz-sea"><svg class="vz-svg" viewBox="0 0 300 150" role="img" aria-label="Island and rising sea" data-seasvg></svg>
+    <label>Sea level rise <input type="range" min="0" max="100" value="0" step="10" data-seaslider></label><p class="vz-detail" data-detail></p></div>`, "Most Maldivian land is less than 1 metre above the sea.");
+  case "monsoon": return w(`<div class="vz-monsoon"><svg class="vz-svg" viewBox="0 0 200 260" role="img" aria-label="Monsoon winds over the Maldives" data-monsvg></svg>
+    <div class="vz-chips"><button type="button" data-mon="iruvai" aria-pressed="true">🌤️ Iruvai</button><button type="button" data-mon="hulhangu" aria-pressed="false">🌧️ Hulhangu</button></div><p class="vz-detail" data-detail></p></div>`, "The two monsoons blow from opposite directions.");
+  case "branches": return w(`<div class="vz-branches"><div class="roof">📜 The Constitution</div><div class="pillars">${[["🏛️","Executive","The President and ministers run the government."],["🗳️","Legislature","The People’s Majlis makes the laws."],["⚖️","Judiciary","The courts decide if laws were broken. The Supreme Court is the highest."]].map(([e,t,d]) => `<button type="button" data-say="${t}: ${d}"><span aria-hidden="true">${e}</span><b>${t}</b></button>`).join("")}</div></div><p class="vz-detail" data-detail>Tap a pillar.</p>`, "Power is shared so no one group has all of it.");
+  case "scale": return w(`<div class="vz-scale"><div class="ruler" data-ruler></div><label>Distance on the map <input type="range" min="1" max="10" value="3" data-scaleslider></label><p class="vz-detail" data-detail></p></div>`, "On this map, 1 cm stands for 10 km.");
+  case "graph": {
+    const cats = [["🚶","Walk"],["🚲","Bicycle"],["🛵","Motorbike"],["🚌","Bus"]];
+    return w(`<div class="vz-graph" data-graph="[3,2,2,1]"><div class="bars">${cats.map(([e,t],k) => `<div class="bar"><i data-bar="${k}"></i><span>${e}<br>${t}</span></div>`).join("")}</div><div class="vz-chips">${cats.map(([,t],k) => `<button type="button" data-vote="${k}">+1 ${t}</button>`).join("")}</div></div>`, "Example data: tap to add a vote and watch the graph change.");
+  }
+  case "budget": return w(`<div class="vz-budget"><p>Monthly pocket money: <b>500 rufiyaa</b></p>${[["food","🍱 Snacks",150],["fun","🎮 Fun",100],["gifts","🎁 Gifts",50]].map(([k,t,v]) => `<label>${t} <input type="range" min="0" max="250" step="25" value="${v}" data-bud="${k}"></label>`).join("")}<div class="track"><i data-saved></i></div><p class="vz-detail" data-detail></p></div>`, "A budget plans spending so you can save.");
+  case "ratio": return w(`<div class="vz-ratio"><canvas width="300" height="150" data-ratio aria-label="About 3,000 squares of sea for every 1 square of land" role="img"></canvas></div>`, "For every 1 square of land (orange), the Maldives has about 3,000 squares of sea.");
+  case "sdg": {
+    const N = ["No poverty","Zero hunger","Good health and well-being","Quality education","Gender equality","Clean water and sanitation","Affordable and clean energy","Decent work and economic growth","Industry, innovation and infrastructure","Reduced inequalities","Sustainable cities and communities","Responsible consumption and production","Climate action","Life below water","Life on land","Peace, justice and strong institutions","Partnerships for the goals"];
+    return w(`<div class="vz-sdg">${N.map((n,k) => `<button type="button" class="${[3,5,12,13].includes(k) ? "key" : ""}" style="--h:${k*21}" data-say="Goal ${k+1}: ${n}">${k+1}</button>`).join("")}</div><p class="vz-detail" data-detail>Tap a goal. Starred goals matter most for islands.</p>`, "The 17 Sustainable Development Goals.");
+  }
+  case "parts": return w(`<div class="vz-parts"><span class="center" aria-hidden="true">${spec.center}</span><div class="vz-chips">${spec.parts.map(([t,d]) => `<button type="button" data-say="${vizEsc(t)}: ${vizEsc(d)}">${vizEsc(t)}</button>`).join("")}</div></div><p class="vz-detail" data-detail>Tap a part.</p>`);
+  }
+  return "";
+}
+
+/* draw the moving diagrams */
+function atollStage(n){
+  const sea = 60, vol = [0, 20, 40, 62, 84][n];
+  let s = `<rect class="sky" x="0" y="0" width="300" height="${sea}"/><rect class="deep" x="0" y="${sea}" width="300" height="${140-sea}"/>`;
+  s += `<polygon class="rock" points="70,140 150,${vol} 230,140"/>`;
+  if(n >= 2){
+    const h = n === 2 ? sea+6 : sea-2;
+    s += `<polygon class="coral" points="${n===2?"88,140 100,"+h+" 118,"+h+" 112,140":"40,140 58,"+h+" 82,"+h+" 76,140"}"/><polygon class="coral" points="${n===2?"188,140 182,"+h+" 200,"+h+" 212,140":"224,140 218,"+h+" 242,"+h+" 260,140"}"/>`;
+  }
+  if(n === 4) s += `<rect class="lagoon" x="82" y="${sea}" width="136" height="16"/><text x="70" y="${sea-4}" font-size="14" text-anchor="middle">🌴</text><text x="230" y="${sea-4}" font-size="14" text-anchor="middle">🌴</text>`;
+  s += `<line class="sealine" x1="0" y1="${sea}" x2="300" y2="${sea}"/><text class="lbl" x="294" y="${sea-5}" text-anchor="end">sea level</text>`;
+  return s;
+}
+const ATOLL_TEXT = ["", "1. A volcano rises out of the ocean.", "2. Corals grow around it in the warm shallow water.", "3. The volcano slowly sinks. The corals keep growing up towards the light.", "4. The volcano is gone. A ring of coral and sand islands surrounds a lagoon: an atoll!"];
+function gwDraw(p){
+  const lens = Math.max(6, 46 - p*0.4), salty = p > 70;
+  return `<rect class="sky" x="0" y="0" width="300" height="60"/><rect class="deep" x="0" y="60" width="300" height="90"/>
+    <rect class="sandfill" x="60" y="48" width="180" height="14" rx="6"/><text x="150" y="44" font-size="20" text-anchor="middle">🏠🌴🏠</text>
+    <ellipse class="${salty ? "brackish" : "fresh"}" cx="150" cy="62" rx="${80 - p*0.3}" ry="${lens}"/>
+    <rect x="${150 - 2}" y="40" width="4" height="${22 + lens*0.6}" class="pipe"/><text class="lbl" x="150" y="${70 + lens*0.5}" text-anchor="middle">${salty ? "salty!" : "fresh water"}</text>
+    <text class="lbl" x="20" y="140">salty sea water</text>`;
+}
+function seaDraw(cm){
+  const ground = 70, water = ground + 6 - cm*0.07;
+  return `<rect class="sky" x="0" y="0" width="300" height="150"/>
+    <polygon class="sandfill" points="40,150 70,${ground} 230,${ground} 260,150"/><text x="150" y="${ground-6}" font-size="22" text-anchor="middle">🏠🌴🏫🌴🏠</text>
+    <rect class="deep seaw" x="0" y="${water}" width="300" height="${150-water}"/>
+    <line class="sealine" x1="0" y1="${water}" x2="300" y2="${water}"/>`;
+}
+const SEA_TEXT = cm => cm === 0 ? "Today: the island is just above the sea." : cm < 50 ? `Sea up ${cm} cm: waves reach further onto the beach and wash sand away.` : cm < 100 ? `Sea up ${cm} cm: floods are common and fresh water turns salty.` : "Sea up 1 metre: much of the island could be under water.";
+function monDraw(which){
+  let s = `<rect class="deep" x="0" y="0" width="200" height="260"/>`;
+  ATOLLS.forEach(([lat,lon,aw,ah]) => s += `<ellipse class="atollv" cx="${mx(lon)*2}" cy="${my(lat)*2.6}" rx="${aw/(MAP.lon1-MAP.lon0)*100}" ry="${ah/(MAP.lat0-MAP.lat1)*130}"/>`);
+  const ne = which === "iruvai";
+  [[30,40],[90,90],[40,150],[110,190],[60,230]].forEach(([x,y]) => {
+    const dx = ne ? -30 : 30, dy = ne ? 22 : -22, x0 = ne ? x+40 : x, y0 = ne ? y-20 : y+10;
+    s += `<line class="wind ${ne ? "dry" : "wet"}" x1="${x0}" y1="${y0}" x2="${x0+dx}" y2="${y0+dy}" marker-end="url(#arrowhead)"/>`;
+  });
+  s += `<defs><marker id="arrowhead" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" refX="8" refY="6" orient="auto"><path d="M0,0 L12,6 L0,12 Z" class="arrowfill"/></marker></defs>`;
+  s += `<text x="186" y="22" text-anchor="end" font-size="26">${ne ? "🌤️" : "🌧️"}</text>`;
+  return s;
+}
+const MON_TEXT = {iruvai:"Iruvai, the northeast monsoon (about December to April): drier, calmer seas.", hulhangu:"Hulhangu, the southwest monsoon (about May to November): more rain, strong winds, rough seas."};
+
+function bindViz(root){
+  root.querySelectorAll(".viz").forEach(fig => {
+    const detail = fig.querySelector("[data-detail]");
+    const say = t => { if(detail) detail.textContent = t; };
+    fig.querySelectorAll("[data-tile]").forEach(b => b.onclick = () => { fig.querySelectorAll("[data-tile]").forEach(x => x.setAttribute("aria-pressed", x===b)); if(canSpeak) speak(b.innerText.replace(/\n/g, ". ")); });
+    fig.querySelectorAll("[data-say]").forEach(b => b.onclick = () => { say(b.dataset.say); fig.querySelectorAll("[data-say]").forEach(x => x.setAttribute("aria-pressed", x===b)); });
+    fig.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => {
+      const spec = VIZ[fig.dataset.key]; const ev = spec.events[+b.dataset.ev];
+      fig.querySelectorAll("[data-ev]").forEach(x => x.setAttribute("aria-pressed", x===b)); say(ev[0] + ": " + ev[2]);
+    });
+    fig.querySelectorAll("[data-hl]").forEach(b => b.onclick = () => {
+      const k = b.dataset.hl, info = {ocean:"Deep blue water, far from land.", reef:"Living coral that breaks the big waves and protects the island.", lagoon:"Shallow, calm water between the reef and the beach.", beach:"Soft white sand made from broken coral.", land:"Where we live: homes, the mosque, the school."}[k];
+      const svg = fig.querySelector("svg"); if(svg) svg.classList.add("hl-any");
+      fig.querySelectorAll("[data-part]").forEach(p => p.classList.toggle("hl", p.dataset.part === k));
+      fig.querySelectorAll("[data-hl]").forEach(x => x.setAttribute("aria-pressed", x===b)); say(b.textContent + ": " + info);
+    });
+    const ds = fig.querySelector("[data-dayslider]");
+    if(ds){ const box = fig.querySelector(".vz-day"), txt = JSON.parse(box.dataset.days); const up = () => { box.dataset.day = ds.value; say(txt[+ds.value]); }; ds.oninput = up; up(); }
+    const price = fig.querySelector("[data-price]");
+    if(price){
+      let p = 7; price.oninput = () => { p = +price.value; say(`Price: ${p} rufiyaa. Choose a note to pay with.`); };
+      fig.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => { const pay = +b.dataset.pay; say(pay < p ? `${pay} rufiyaa is not enough for ${p} rufiyaa.` : `You pay ${pay}. Your change is ${pay - p} rufiyaa.`); });
+    }
+    const as = fig.querySelector("[data-atollslider]");
+    if(as){ const svg = fig.querySelector("[data-atollsvg]"); const up = () => { svg.innerHTML = atollStage(+as.value); say(ATOLL_TEXT[+as.value]); }; as.oninput = up; up(); }
+    const gs = fig.querySelector("[data-gwslider]");
+    if(gs){ const svg = fig.querySelector("[data-gwsvg]"); const up = () => { const v = +gs.value; svg.innerHTML = gwDraw(v); say(v > 70 ? "Too much pumping: sea water pushes in and the well turns salty." : v > 40 ? "The fresh water layer is getting thinner." : "A healthy layer of fresh water."); }; gs.oninput = up; up(); }
+    const ss = fig.querySelector("[data-seaslider]");
+    if(ss){ const svg = fig.querySelector("[data-seasvg]"); const up = () => { svg.innerHTML = seaDraw(+ss.value); say(SEA_TEXT(+ss.value)); }; ss.oninput = up; up(); }
+    const ms = fig.querySelector("[data-monsvg]");
+    if(ms){ const set = k => { ms.innerHTML = monDraw(k); say(MON_TEXT[k]); fig.querySelectorAll("[data-mon]").forEach(x => x.setAttribute("aria-pressed", x.dataset.mon===k)); }; fig.querySelectorAll("[data-mon]").forEach(b => b.onclick = () => set(b.dataset.mon)); set("iruvai"); }
+    const sc = fig.querySelector("[data-scaleslider]");
+    if(sc){ const ruler = fig.querySelector("[data-ruler]"); const up = () => { const v = +sc.value; ruler.style.setProperty("--w", v*10 + "%"); ruler.innerHTML = `<i></i><span>${v} cm</span>`; say(`${v} cm on the map = ${v*10} km in real life.`); }; sc.oninput = up; up(); }
+    const gr = fig.querySelector("[data-graph]");
+    if(gr){ const data = JSON.parse(gr.dataset.graph); const up = () => { const m = Math.max(...data, 5); gr.querySelectorAll("[data-bar]").forEach(i => { i.style.height = data[+i.dataset.bar]/m*100 + "%"; i.dataset.n = data[+i.dataset.bar]; }); }; fig.querySelectorAll("[data-vote]").forEach(b => b.onclick = () => { data[+b.dataset.vote]++; up(); }); up(); }
+    const bud = fig.querySelectorAll("[data-bud]");
+    if(bud.length){ const up = () => { const spent = [...bud].reduce((s,i) => s + +i.value, 0), saved = Math.max(0, 500 - spent); fig.querySelector("[data-saved]").style.width = saved/500*100 + "%"; say(spent > 500 ? `You planned ${spent} rufiyaa: that’s more than 500!` : `Spending ${spent} rufiyaa, saving ${saved} rufiyaa.`); }; bud.forEach(i => i.oninput = up); up(); }
+    const rc = fig.querySelector("[data-ratio]");
+    if(rc){
+      const x = rc.getContext("2d"), cs = getComputedStyle(document.documentElement), cols = 75, rows = 40, cw = 300/cols, ch = 150/rows;
+      x.fillStyle = cs.getPropertyValue("--water-bot").trim() || "#6ccfd6"; x.fillRect(0,0,300,150);
+      x.strokeStyle = "rgba(255,255,255,.35)"; x.lineWidth = .5;
+      for(let i=0;i<=cols;i++){ x.beginPath(); x.moveTo(i*cw,0); x.lineTo(i*cw,150); x.stroke(); }
+      for(let j=0;j<=rows;j++){ x.beginPath(); x.moveTo(0,j*ch); x.lineTo(300,j*ch); x.stroke(); }
+      x.fillStyle = "#e1702a"; x.fillRect(37*cw, 20*ch, cw, ch);
+    }
+  });
+}
+
 function vLesson(app){
   const l = lessonById(view.id), i = view.i, card = l.cards[i], s = STRANDS[l.strand];
-  const last = i === l.cards.length - 1;
+  const last = i === l.cards.length - 1, key = l.id + "#" + i, spec = VIZ[key];
+  const gname = GUIDES[l.strand][1], scene = SCENES[LESSONS.indexOf(l) % SCENES.length];
   app.innerHTML = `
     <div class="lesson-head">
       <ol class="learning-steps" aria-label="Lesson steps">${l.cards.map((_,k) => `<li class="${k===i ? "current" : k<i ? "past" : ""}" ${k===i ? 'aria-current="step"' : ""}>${k+1}<span class="lbl">. ${k===0 ? "Your goal" : "Learn"}</span></li>`).join("")}<li>${l.cards.length+1}<span class="lbl">. Quiz</span></li></ol>
     </div>
-    <article class="page">
-      <span class="eyebrow" style="color:var(${s.c})">${s.name} · Grade ${l.grade} · ${esc(l.title)}</span>
-      <h2>${i===0 ? `<span class="pic" aria-hidden="true">${l.pic}</span> ` : ""}${esc(card.h)}</h2>
-      <p class="txt">${esc(card.t)}</p>
-      ${card.w ? `<p class="word">${esc(card.w)}</p>` : ""}
+    <article class="page lesson-page ${spec ? "has-viz" : ""}">
+      ${i===0 ? `<div class="scene" style="background-image:url(${IMG["scene-" + scene]})"><img class="guide" src="${guideImg(l.strand)}" alt="${gname}, your guide"><p class="bubble"><b>${gname}’s lesson</b>${esc(l.blurb)}</p></div>` : ""}
+      <div class="lesson-body">
+        <div class="lesson-text">
+          <span class="eyebrow" style="color:var(${s.c})">${s.name} · Grade ${l.grade} · ${esc(l.title)}</span>
+          <h2>${i===0 ? `<span class="pic" aria-hidden="true">${l.pic}</span> ` : ""}${esc(card.h)}</h2>
+          <p class="txt">${esc(card.t)}</p>
+          ${card.w ? `<p class="word"><img class="mini-guide" src="${guideImg(l.strand)}" alt="">${esc(card.w)}</p>` : ""}
+        </div>
+        ${spec ? vizHTML(spec, key) : i > 0 ? `<img class="side-guide" src="${guideImg(l.strand)}" alt="">` : ""}
+      </div>
     </article>`;
+  bindViz(app);
   setControls(`<button class="btn alt" id="back" type="button" aria-label="Close lesson">✕</button>
     <button class="btn alt" id="prev" type="button" ${i===0?"disabled":""}>← Back</button>
     ${canSpeak ? `<button class="btn alt" id="read" type="button" aria-label="Read to me">🔊</button>` : ""}
@@ -464,7 +726,8 @@ function feedbackHTML(s){
     if(q.t === "order") fix = `The right order is: ${q.items.map(esc).join(" → ")}. `;
     if(q.t === "sort") fix = `Check the rows in red to see the right group. `;
   }
-  return `<div class="feedback ${s.ok?"ok":"no"}"><b>${s.ok ? "Well done! ★" : "Not quite."}</b> ${fix}${q.w ? esc(q.w) : ""}${!s.ok ? " This question will come back in a daily challenge." : ""}</div>`;
+  const fl = lessonById(q.qid.split(":")[0]);
+  return `<div class="feedback ${s.ok?"ok":"no"}">${fl ? `<img class="fb-guide" src="${guideImg(fl.strand)}" alt="">` : ""}<p><b>${s.ok ? "Well done! ★" : "Not quite."}</b> ${fix}${q.w ? esc(q.w) : ""}${!s.ok ? " This question will come back in a daily challenge." : ""}</p></div>`;
 }
 function mapHTML(s){
   const q = s.q;
