@@ -225,33 +225,36 @@ function go(name, data){
   view = Object.assign({name}, data||{}); render(); window.scrollTo(0,0);
 }
 
+const NAV = [["home","🏝️","Home"],["lessons","📚","Lessons"],["daily","🎯","Challenge"],["shop","🐠","Reef"],["badges","🏅","Badges"]];
 function renderBar(){
   const c = kid(), inApp = c && store.grade && !["grown","gate","profiles","pickGrade"].includes(view.name);
-  const links = (inApp ? [["home","My learning"],["shop","Reef shop"],["badges","Badges"]] : []).concat([["parent","For parents"],["teacher","For teachers"]]);
-  const here = view.name === "grown" ? view.tab : view.name;
-  $("#topnav").innerHTML = links.map(([k,t]) => `<button type="button" data-nav="${k}" ${here===k?'aria-current="page"':""}>${t}</button>`).join("");
-  $("#topnav").querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { const k = b.dataset.nav; if(k === "parent" || k === "teacher") go("gate", {tab:k}); else go(k); });
   $("#barKid").innerHTML = inApp
-    ? `<button class="chip" id="switchKid" type="button" title="Log out and switch explorer">${avHTML(c.avatar,"s")} ${esc(c.name)}</button><button class="chip stars" id="toShop" type="button" title="Stars to spend in your reef">⭐ ${balance(c)}</button>`
+    ? `<button class="chip" id="switchKid" type="button" title="Log out and switch explorer">${avHTML(c.avatar,"s")} <span class="nm">${esc(c.name)}</span></button><span class="chip stars" title="Stars to spend in your reef">⭐ ${balance(c)}</span>`
     : "";
   const sw = $("#switchKid"); if(sw) sw.onclick = () => go("profiles");
-  const sh = $("#toShop"); if(sh) sh.onclick = () => go("shop");
+  const bn = $("#bottomnav");
+  if(!inApp){ bn.innerHTML = ""; return; }
+  const here = view.name === "result" || view.name === "cert" ? "" : view.name;
+  const dailyOpen = c.dailyDone !== today();
+  bn.innerHTML = `<div class="bn-inner">${NAV.map(([k,ic,t]) => `<button type="button" data-nav="${k}" ${here===k ? 'aria-current="page"' : ""}><span class="ic" aria-hidden="true">${ic}${k==="daily" && dailyOpen ? '<i class="dot"></i>' : ""}</span><span>${t}</span></button>`).join("")}</div>`;
+  bn.querySelectorAll("[data-nav]").forEach(b => b.onclick = () => { const k = b.dataset.nav; if(k === "daily"){ if(c.dailyDone === today()) go("home"); else startDaily(); } else go(k); });
 }
+/* lesson and quiz screens swap the bottom nav for their own controls */
+function setControls(html){ $("#bottomnav").innerHTML = `<div class="bn-inner controls">${html}</div>`; }
 function render(){
   renderBar();
-  const V = {profiles:vProfiles, pickGrade:vPickGrade, home:vHome, lesson:vLesson, quiz:vQuiz, result:vResult, badges:vBadges, shop:vShop, cert:vCert, gate:vGate, grown:vGrown}[view.name] || vProfiles;
+  const V = {profiles:vProfiles, pickGrade:vPickGrade, home:vHome, lessons:vLessons, lesson:vLesson, quiz:vQuiz, result:vResult, badges:vBadges, shop:vShop, cert:vCert, gate:vGate, grown:vGrown}[view.name] || vProfiles;
   V($("#app"));
 }
 
 function vProfiles(app){
   const kids = store.children;
   app.innerHTML = `
-  <section class="island-welcome" style="background-image:url(${IMG.beach})">
+  <section class="island-welcome compact" style="background-image:url(${IMG.beach})">
     <div class="island-copy">
       <p class="eyebrow">Welcome to Raajje Explorers</p>
       <h1>${kids.length ? "Who is exploring<br><em>today?</em>" : "Little explorers.<br><em>Big discoveries.</em>"}</h1>
       <p>Social Studies for Grades 1 to 6: our culture, islands, history and how our country works.</p>
-      <span class="tag-btn">${kids.length ? "Tap your picture to start ↓" : "Add your first explorer ↓"}</span>
     </div>
     <img class="greeter" src="${IMG.dolphin}" alt="A friendly dolphin welcomes you" width="130" height="130">
   </section>
@@ -338,47 +341,57 @@ function vHome(app){
   const hw = cls && Array.isArray(cls.assignments) ? cls.assignments.map(lessonById).filter(Boolean) : [];
   const next = list.find(l => !isDone(c,l));
   const plan = [
-    next ? {b:next.pic+" "+next.title, s:"Next lesson · "+STRANDS[next.strand].name+" · about 6 minutes", act:() => go("lesson", {id:next.id, i:0, t0:Date.now()})}
+    next ? {b:next.pic+" "+next.title, s:"Next lesson · "+STRANDS[next.strand].name, act:() => go("lesson", {id:next.id, i:0, t0:Date.now()})}
          : {b:"Every Grade "+g+" lesson finished", s:"Pick another grade next time you log in", done:true},
     dailyDone ? {b:"Daily challenge done", s:"A new one is ready tomorrow", done:true}
-              : {b:"Daily challenge", s:due ? `5 questions · ${due} to review · up to 7 bonus stars` : "5 mixed questions · up to 7 bonus stars", act:startDaily},
-    {b:"Visit your reef", s:`⭐ ${balance(c)} stars to spend on sea friends`, act:() => go("shop")}
+              : {b:"🎯 Daily challenge", s:due ? `5 questions · ${due} to review · up to 7 bonus stars` : "5 mixed questions · up to 7 bonus stars", act:startDaily},
+    {b:"📚 All Grade "+g+" lessons", s:`${gDone} of ${list.length} finished`, act:() => go("lessons")}
   ];
   app.innerHTML = `
-    <section class="island-welcome" style="background-image:url(${IMG.beach})">
+    <section class="island-welcome compact" style="background-image:url(${IMG.beach})">
       <div class="island-copy">
         <p class="eyebrow">Your learning island · Grade ${g}</p>
-        <h1>Hello ${esc(c.name)}!<br><em>Where shall we sail?</em></h1>
+        <h1>Hello ${esc(c.name)}! <em>Where shall we sail?</em></h1>
+        <div class="gradebar" aria-label="${gDone} of ${list.length} lessons finished"><i style="width:${gDone/list.length*100}%"></i></div>
         <p>${GRADE_THEMES[g]} · ${gDone} of ${list.length} lessons finished</p>
-        <button class="tag-btn" id="toLessons" type="button">Choose a lesson ↓</button>
       </div>
       ${avHTML(c.avatar,"xl greeter")}
     </section>
-    ${gradeComplete(c,g) ? `<div class="certbar" style="margin-top:22px"><b>You finished every Grade ${g} lesson! 🏅</b><button class="btn small coral" id="toCert" type="button">See my certificate</button></div>` : ""}
-    ${hw.length ? `<div class="strip" style="margin-top:22px"><p class="eyebrow">From your teacher</p><h2>Homework · ${esc(cls.name || "your class")}</h2><div class="items">${hw.map(l => `<button class="hw ${isDone(c,l)?"done":""}" type="button" data-lesson="${l.id}">${isDone(c,l) ? "✓ " : ""}${esc(l.title)} · Grade ${l.grade}</button>`).join("")}</div></div>` : ""}
+    ${gradeComplete(c,g) ? `<div class="certbar"><b>You finished every Grade ${g} lesson! 🏅</b><button class="btn small coral" id="toCert" type="button">See my certificate</button></div>` : ""}
+    ${hw.length ? `<div class="strip"><h2>Homework · ${esc(cls.name || "your class")}</h2><div class="items">${hw.map(l => `<button class="hw ${isDone(c,l)?"done":""}" type="button" data-lesson="${l.id}">${isDone(c,l) ? "✓ " : ""}${esc(l.title)} · Grade ${l.grade}</button>`).join("")}</div></div>` : ""}
     <div class="dashboard-grid">
       <section class="panel"><p class="eyebrow">Small steps, every day</p><h2>Today’s learning plan</h2>
         <ul class="plan-list">${plan.map((p,i) => `<li class="${p.done?"done":""}"><button type="button" data-plan="${i}" ${p.act?"":"disabled"}><b>${p.done ? "✓ " : ""}${esc(p.b)}</b><small>${esc(p.s)}</small></button><span class="step-number">0${i+1}</span></li>`).join("")}</ul>
       </section>
-      <section class="panel reward-panel"><p class="eyebrow">Every step counts</p><h2>⭐ ${earnedStars(c)} stars</h2>
-        <div class="reef" role="img" aria-label="${esc(c.name)}’s reef with ${c.owned.length} sea friends">${reefHTML(c)}</div>
-        ${got.size ? `<div class="badges-row">${BADGES.filter(b => got.has(b.id)).slice(-3).map(b => `<span>${b.icon} ${esc(b.name)}</span>`).join("")}</div>` : `<p>Your first badge is waiting. Finish a lesson to begin.</p>`}
-        <button class="link" id="toBadges" type="button" style="justify-self:start">See all badges · ${got.size} of ${BADGES.length} →</button>
+      <section class="panel reward-panel"><div class="row" style="justify-content:space-between"><h2>⭐ ${earnedStars(c)} stars</h2><button class="link" id="toBadges" type="button">Badges · ${got.size}/${BADGES.length} →</button></div>
+        <button class="reef-btn" id="toReef" type="button" aria-label="Open the reef shop"><span class="reef small" role="img" aria-label="${esc(c.name)}’s reef">${reefHTML(c)}</span></button>
+        ${got.size ? `<div class="badges-row">${BADGES.filter(b => got.has(b.id)).slice(-3).map(b => `<span>${b.icon} ${esc(b.name)}</span>`).join("")}</div>` : `<p class="note">Finish a lesson to win your first badge.</p>`}
       </section>
-    </div>
-    <div class="section-title" id="lessons"><h2>Grade ${g} lessons</h2><span class="note">Key Stage ${stageFor(g)} · ${GRADE_THEMES[g]}</span></div>
-    <div class="island-subjects">${Object.entries(STRANDS).map(([k,s]) => { const ls = list.filter(l => l.strand === k); return ls.length ? `
-      <section class="subject-island" style="--accent:var(--s-${k});--wash:var(--w-${k})" aria-label="${s.name}"><h2>${s.name}</h2><div class="island-apps">${ls.map(l => { const p = c.progress[l.id]; return `
-        <button class="island-app" type="button" data-lesson="${l.id}">
-          <span class="island-pic" aria-hidden="true">${l.pic}${isDone(c,l) ? `<span class="tick">✓</span>` : ""}</span>
-          <span class="island-copy-sm"><strong>${esc(l.title)}</strong><span class="d">${esc(l.blurb)}</span>${starRow(p ? p.best : 0, l.quiz.length)}<span class="island-open">${p ? (isDone(c,l) ? "Play again" : "Try again") : "Open lesson"} →</span></span>
-        </button>`; }).join("")}</div></section>` : ""; }).join("")}
     </div>`;
   app.querySelectorAll("[data-lesson]").forEach(b => b.onclick = () => go("lesson", {id:b.dataset.lesson, i:0, t0:Date.now()}));
   app.querySelectorAll("[data-plan]").forEach(b => b.onclick = () => { const p = plan[+b.dataset.plan]; if(p.act) p.act(); });
   $("#toBadges").onclick = () => go("badges");
-  $("#toLessons").onclick = () => { const el = $("#lessons"); if(el) el.scrollIntoView({behavior:"smooth"}); };
+  $("#toReef").onclick = () => go("shop");
   const ce = $("#toCert"); if(ce) ce.onclick = () => go("cert", {grade:g});
+}
+
+const STRAND_SHORT = {culture:"Culture", place:"Places", econ:"Economy", time:"Time", citizen:"Citizenship", inquiry:"Investigating"};
+function vLessons(app){
+  const c = kid(); if(!c) return go("profiles");
+  if(!store.grade) return go("pickGrade");
+  const g = store.grade, all = gradeLessons(g), f = view.strand || "all";
+  const list = f === "all" ? all : all.filter(l => l.strand === f);
+  const gDone = all.filter(l => isDone(c,l)).length;
+  app.innerHTML = `
+    <div class="section-title"><h2>Grade ${g} lessons</h2><span class="note">${GRADE_THEMES[g]} · ${gDone} of ${all.length} finished</span></div>
+    <div class="tabs chips" role="tablist" aria-label="Strand">${[["all","All"]].concat(Object.keys(STRANDS).map(k => [k, STRAND_SHORT[k]])).map(([k,t]) => `<button role="tab" type="button" data-strand="${k}" aria-selected="${f===k}">${t}</button>`).join("")}</div>
+    <div class="lesson-grid">${list.map(l => { const p = c.progress[l.id], k = l.strand; return `
+      <button class="island-app" type="button" data-lesson="${l.id}" style="--accent:var(--s-${k});--wash:var(--w-${k})">
+        <span class="island-pic" aria-hidden="true">${l.pic}${isDone(c,l) ? `<span class="tick">✓</span>` : ""}</span>
+        <span class="island-copy-sm"><span class="strand-tag">${STRAND_SHORT[k]}</span><strong>${esc(l.title)}</strong><span class="d">${esc(l.blurb)}</span>${starRow(p ? p.best : 0, l.quiz.length)}</span>
+      </button>`; }).join("")}</div>`;
+  app.querySelectorAll("[data-strand]").forEach(b => b.onclick = () => { view.strand = b.dataset.strand; render(); });
+  app.querySelectorAll("[data-lesson]").forEach(b => b.onclick = () => go("lesson", {id:b.dataset.lesson, i:0, t0:Date.now()}));
 }
 
 function vLesson(app){
@@ -386,22 +399,19 @@ function vLesson(app){
   const last = i === l.cards.length - 1;
   app.innerHTML = `
     <div class="lesson-head">
-      <button class="link" id="back" type="button">← Back to lessons</button>
-      <ol class="learning-steps" aria-label="Lesson steps">${l.cards.map((_,k) => `<li class="${k===i ? "current" : k<i ? "past" : ""}" ${k===i ? 'aria-current="step"' : ""}>${k+1}. ${k===0 ? "Your goal" : "Learn"}</li>`).join("")}<li>${l.cards.length+1}. Quiz</li></ol>
+      <ol class="learning-steps" aria-label="Lesson steps">${l.cards.map((_,k) => `<li class="${k===i ? "current" : k<i ? "past" : ""}" ${k===i ? 'aria-current="step"' : ""}>${k+1}<span class="lbl">. ${k===0 ? "Your goal" : "Learn"}</span></li>`).join("")}<li>${l.cards.length+1}<span class="lbl">. Quiz</span></li></ol>
     </div>
     <article class="page">
       <span class="eyebrow" style="color:var(${s.c})">${s.name} · Grade ${l.grade} · ${esc(l.title)}</span>
-      ${i===0 ? `<div class="pic" aria-hidden="true">${l.pic}</div>` : ""}
-      <h2>${esc(card.h)}</h2>
+      <h2>${i===0 ? `<span class="pic" aria-hidden="true">${l.pic}</span> ` : ""}${esc(card.h)}</h2>
       <p class="txt">${esc(card.t)}</p>
       ${card.w ? `<p class="word">${esc(card.w)}</p>` : ""}
-      ${canSpeak ? `<div><button class="btn alt small" id="read" type="button">🔊 Read to me</button></div>` : ""}
-    </article>
-    <div class="nav">
-      <button class="btn alt" id="prev" type="button" ${i===0?"disabled":""}>Back</button>
-      <button class="btn ${last?"coral":""}" id="next" type="button">${last ? "Take the quiz" : "Next"}</button>
-    </div>`;
-  $("#back").onclick = () => go("home");
+    </article>`;
+  setControls(`<button class="btn alt" id="back" type="button" aria-label="Close lesson">✕</button>
+    <button class="btn alt" id="prev" type="button" ${i===0?"disabled":""}>← Back</button>
+    ${canSpeak ? `<button class="btn alt" id="read" type="button" aria-label="Read to me">🔊</button>` : ""}
+    <button class="btn grow ${last?"coral":""}" id="next" type="button">${last ? "Take the quiz →" : "Next →"}</button>`);
+  $("#back").onclick = () => go("lessons");
   $("#prev").onclick = () => go("lesson", {id:l.id, i:i-1, t0:view.t0});
   $("#next").onclick = () => last ? startQuiz(l.id, view.t0) : go("lesson", {id:l.id, i:i+1, t0:view.t0});
   const r = $("#read"); if(r) r.onclick = () => speak(card.h + ". " + card.t + (card.w ? ". " + card.w : ""));
@@ -495,7 +505,6 @@ function vQuiz(app){
   const from = view.mode === "daily" ? lessonById(q.qid.split(":")[0]) : null;
   app.innerHTML = `
     <div class="lesson-head">
-      <button class="link" id="back" type="button">← Leave</button>
       <div class="progress" aria-label="Question ${view.i+1} of ${view.qs.length}"><i style="width:${(view.i+(s.answered?1:0))/view.qs.length*100}%"></i></div>
       <span class="eyebrow">Question ${view.i+1} of ${view.qs.length}</span>
     </div>
@@ -505,10 +514,11 @@ function vQuiz(app){
       <p class="q">${esc(q.q)}</p>
       ${questionHTML(s)}
       ${feedbackHTML(s)}
-      ${canSpeak && !s.answered ? `<div><button class="btn alt small" id="read" type="button">🔊 Read to me</button></div>` : ""}
-    </article>
-    <div class="nav"><span></span>${s.answered ? `<button class="btn ${last?"coral":""}" id="next" type="button">${last ? "See my stars" : "Next question"}</button>` : ""}</div>`;
-  $("#back").onclick = () => go("home");
+    </article>`;
+  setControls(`<button class="btn alt" id="back" type="button" aria-label="Leave quiz">✕</button>
+    ${canSpeak ? `<button class="btn alt" id="read" type="button" aria-label="Read to me" ${s.answered ? "disabled" : ""}>🔊</button>` : ""}
+    <button class="btn grow ${last?"coral":""}" id="next" type="button" ${s.answered ? "" : "disabled"}>${s.answered ? (last ? "See my stars →" : "Next question →") : "Answer to continue"}</button>`);
+  $("#back").onclick = () => go(view.mode === "daily" ? "home" : "lessons");
   app.querySelectorAll("[data-o]").forEach(b => b.onclick = () => { const pick = s.opts[+b.dataset.o]; record(s, pick === q.a[0], pick); });
   app.querySelectorAll("[data-place]").forEach(b => b.onclick = () => record(s, b.dataset.place === q.place, b.dataset.place));
   app.querySelectorAll("[data-ord]").forEach(b => b.onclick = () => { s.seq.push(+b.dataset.ord); render(); });
@@ -518,7 +528,7 @@ function vQuiz(app){
     if(q.t === "order") record(s, s.seq.every((k,pos) => k===pos), s.seq.map(k => q.items[k]).join(" → "));
     else record(s, q.items.every(([,bin],k) => s.assign[k]===bin), q.items.map(([t],k) => t+": "+q.bins[s.assign[k]]).join(", "));
   };
-  const n = $("#next"); if(n) n.onclick = () => last ? finishQuiz() : (view.i++, render());
+  const n = $("#next"); if(n) n.onclick = () => { if(!s.answered) return; if(last) finishQuiz(); else { view.i++; render(); window.scrollTo(0,0); } };
   const r = $("#read"); if(r) r.onclick = () => speak(q.q + (q.t === "mc" ? " " + s.opts.join(". Or, ") + "?" : ""));
 }
 
@@ -562,11 +572,11 @@ function vResult(app){
       <div class="nav" style="justify-content:center">
         ${daily ? "" : `<button class="btn alt" id="again" type="button">Try again</button>`}
         <button class="btn alt" id="shop" type="button">Reef shop</button>
-        <button class="btn" id="map" type="button">Back to lessons</button>
+        <button class="btn" id="map" type="button">More lessons</button>
       </div>
     </article>`;
   const a = $("#again"); if(a) a.onclick = () => startQuiz(view.id);
-  $("#map").onclick = () => go("home");
+  $("#map").onclick = () => go("lessons");
   $("#shop").onclick = () => go("shop");
   const ce = $("#toCert"); if(ce) ce.onclick = () => go("cert", {grade:view.newCert});
 }
@@ -575,14 +585,12 @@ function vBadges(app){
   const c = kid(); if(!c) return go("profiles");
   const got = earned(c), certs = [1,2,3,4,5,6].filter(g => gradeComplete(c,g));
   app.innerHTML = `
-    <button class="link" id="back" type="button">← Back to lessons</button>
-    <h1 style="font-size:clamp(28px,5vw,40px);color:var(--deep);margin-top:8px">${esc(c.name)}’s badges</h1>
+    <h1 style="font-size:clamp(28px,5vw,40px);color:var(--deep)">${esc(c.name)}’s badges</h1>
     <p class="note">${got.size} of ${BADGES.length} collected · every badge adds a coral to your reef.</p>
     <section class="badges">${BADGES.map(b => `
       <div class="badge ${got.has(b.id)?"":"locked"}"><span class="medal" aria-hidden="true">${b.icon}</span><b>${esc(b.name)}</b><span>${got.has(b.id) ? "Collected" : esc(b.how)}</span></div>`).join("")}
     </section>
     ${certs.length ? `<div class="strip"><h2>Certificates</h2><div class="items">${certs.map(g => `<button class="hw done" type="button" data-cert="${g}">🏅 Grade ${g}</button>`).join("")}</div></div>` : ""}`;
-  $("#back").onclick = () => go("home");
   app.querySelectorAll("[data-cert]").forEach(b => b.onclick = () => go("cert", {grade:+b.dataset.cert}));
 }
 
@@ -590,15 +598,13 @@ function vShop(app){
   const c = kid(); if(!c) return go("profiles");
   const bal = balance(c);
   app.innerHTML = `
-    <button class="link" id="back" type="button">← Back to lessons</button>
-    <section class="hello" style="margin-top:8px"><div><p class="eyebrow">Reef shop</p><h1>Spend your stars on sea friends</h1></div><span class="balance">★ ${bal} to spend</span></section>
-    <div class="reef reefbig" role="img" aria-label="Your reef">${reefHTML(c)}</div>
+    <section class="hello"><div><p class="eyebrow">Reef shop</p><h1>Spend your stars on sea friends</h1></div><span class="balance">★ ${bal} to spend</span></section>
+    <div class="reef" role="img" aria-label="Your reef">${reefHTML(c)}</div>
     <p class="note" style="margin-top:8px">Earn stars from quizzes and the daily challenge. Everything you buy lives in your reef.</p>
     <section class="shop">${SHOP.map(it => { const own = c.owned.includes(it.id); return `
       <div class="shopitem ${own?"owned":""}"><span class="ic" aria-hidden="true">${it.icon}</span><b>${esc(it.name)}</b>
       ${own ? `<span class="note">In your reef</span>` : `<button class="btn small" type="button" data-buy="${it.id}" ${bal < it.cost ? "disabled" : ""}>★ ${it.cost}</button>`}</div>`; }).join("")}
     </section>`;
-  $("#back").onclick = () => go("home");
   app.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => {
     const it = SHOP.find(s => s.id === b.dataset.buy);
     if(!it || balance(c) < it.cost || c.owned.includes(it.id)) return;
@@ -718,8 +724,11 @@ function vParent(box){
   const status = l => { const p = prog[l.id]; if(!p) return `<span class="pill none">Not started</span>`; const r = p.best/l.quiz.length; return r === 1 ? `<span class="pill good">Mastered</span>` : r >= PASS ? `<span class="pill good">Finished</span>` : `<span class="pill bad">Needs practice</span>`; };
   const cls = c.classCode ? classCache[c.classCode] : null;
   if(c.classCode) loadClass(c.classCode);
+  const ps = view.ps || "overview";
   box.innerHTML = `
-    <div class="kidtabs" role="tablist">${kids.map(k => `<button role="tab" type="button" aria-selected="${k.id===c.id}" data-k="${k.id}">${avHTML(k.avatar,"s")}${esc(k.name)}</button>`).join("")}</div>
+    <div class="kidtabs" role="tablist" aria-label="Child">${kids.map(k => `<button role="tab" type="button" aria-selected="${k.id===c.id}" data-k="${k.id}">${avHTML(k.avatar,"s")}${esc(k.name)}</button>`).join("")}</div>
+    <div class="tabs chips" role="tablist" aria-label="Section" style="margin-top:12px">${[["overview","This week"],["progress","Progress"],["settings","Activity & settings"]].map(([k,t]) => `<button role="tab" type="button" data-ps="${k}" aria-selected="${ps===k}">${t}</button>`).join("")}</div>
+    ${ps === "overview" ? `
     <section class="tiles">
       <div class="tile"><div class="n">${done.length}<small style="font-size:18px;color:var(--muted)">/${LESSONS.length}</small></div><div class="l">Lessons finished</div></div>
       <div class="tile"><div class="n">${avg===null ? "–" : avg+"%"}</div><div class="l">Average best score</div></div>
@@ -739,6 +748,7 @@ function vParent(box){
           <div class="new-badges" style="justify-content:flex-start">${BADGES.filter(b => earned(c).has(b.id)).map(b => `<span class="badge-mini"><i>${b.icon}</i>${esc(b.name)}</span>`).join("") || `<span class="note">None yet.</span>`}</div></div>
       </div>
     </section>
+    ` : ""}${ps === "progress" ? `
     <section class="grid2">
       <div class="panel"><h2>Questions to talk about</h2>
         ${c.misses.length ? `<ul class="misses">${c.misses.slice(0,8).map(m => { const l = lessonById((m.qid||"").split(":")[0]); return `<li><b>${esc(m.q)}</b><span>${esc(c.name)} answered: ${esc(m.given)}</span><span>Correct: ${esc(m.right)}</span><span class="meta">${l ? esc(l.title)+" · Grade "+l.grade+" · " : ""}${when(m.at)}</span></li>`; }).join("")}</ul>` : `<p class="note">No wrong answers yet. Missed questions show up here with ${esc(c.name)}’s answer.</p>`}
@@ -754,6 +764,7 @@ function vParent(box){
         <tbody>${gradeLessons(tg).map(l => { const p = prog[l.id]; return `<tr><td><b>${esc(l.title)}</b><br><span class="note">${STRANDS[l.strand].name}</span></td><td class="num">${p ? p.best+" / "+l.quiz.length : "–"}</td><td class="num">${p ? p.attempts : 0}</td><td class="num">${p ? when(p.lastAt) : "–"}</td><td>${status(l)}</td></tr>`; }).join("")}</tbody>
       </table></div>
     </section>
+    ` : ""}${ps === "settings" ? `
     <section class="grid2">
       <div class="panel"><h2>Recent activity</h2>
         ${c.activity.length ? `<ul class="feed">${c.activity.slice(0,8).map(a => { const l = lessonById(a.lesson); return `<li><b>${a.kind==="daily" ? "Daily challenge" : l ? esc(l.title) : "Lesson"} · ${a.score}/${a.total}</b><span>${when(a.at)}${a.secs ? " · "+Math.max(1,mins(a.secs))+" min" : ""}</span></li>`; }).join("")}</ul>` : `<p class="note">No quizzes yet.</p>`}
@@ -772,9 +783,10 @@ function vParent(box){
         <p class="note" id="saved" hidden>Saved.</p>
         <p class="note">Progress is saved in this browser${c.hubId ? ". " + esc(c.name) + " is linked to an Atollingo learner, so finished lessons also add stars there" : ""}.</p>
       </form>
-    </section>`;
-  box.querySelectorAll("[data-k]").forEach(b => b.onclick = () => go("grown", {tab:"parent", kidId:b.dataset.k}));
+    </section>` : ""}`;
+  box.querySelectorAll("[data-k]").forEach(b => b.onclick = () => go("grown", {tab:"parent", kidId:b.dataset.k, ps:view.ps}));
   box.querySelectorAll("[data-tg]").forEach(b => b.onclick = () => { view.tg = +b.dataset.tg; render(); });
+  box.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => { view.ps = b.dataset.ps; render(); });
   box.querySelectorAll("[data-allow]").forEach(b => b.onclick = () => {
     const g = +b.dataset.allow, cur = allowedGrades(c).slice();
     const next = cur.includes(g) ? cur.filter(x => x !== g) : cur.concat(g).sort();
@@ -783,6 +795,7 @@ function vParent(box){
     if(store.active === c.id && store.grade && !next.includes(store.grade)) store.grade = null;
     save(); render();
   });
+  if(!$("#manage")) return;
   $("#manage").onsubmit = e => { e.preventDefault(); const n = $("#mName").value.trim(); if(n) c.name = n; save(); render(); $("#saved").hidden = false; };
   $("#askRemove").onclick = () => { $("#confirmBox").hidden = false; };
   $("#noRemove").onclick = () => { $("#confirmBox").hidden = true; };
@@ -876,6 +889,7 @@ function vClass(box, code){
 }
 
 /* ---------- Boot ---------- */
+$("#grownBtn").onclick = () => go("gate", {tab:"parent"});
 $("#brand").onclick = () => go(kid() && store.grade ? "home" : "profiles");
 const A11Y_KEY = "raajje-a11y";
 function applyA11y(a){

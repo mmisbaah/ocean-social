@@ -319,5 +319,79 @@ td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
 @media (max-width:420px){.greeter{width:64px;height:64px}.island-app{grid-template-columns:62px minmax(0,1fr)}.panel{padding:18px}.topnav{gap:4px 12px;font-size:.9rem}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
+/* ---- compact layout + bottom navigation ---- */
+.bar .wrap{padding-block:10px;gap:8px 14px;flex-wrap:nowrap}
+.brand{flex-wrap:nowrap;white-space:nowrap}
+#barKid{flex-wrap:nowrap;gap:6px}
+.chip.grown{padding:6px 12px}
+.chip{white-space:nowrap}
+.mapbox{width:max(200px,min(100%,320px,calc((100vh - 400px) / 1.6)))}
+.a11y{position:relative}
+.a11y summary{list-style:none;cursor:pointer;display:grid;place-items:center;width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--paper);font-weight:900;color:var(--teal)}
+.a11y summary::-webkit-details-marker{display:none}
+.a11y-panel{position:absolute;right:0;top:48px;z-index:30;display:grid;gap:8px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:0 10px 30px #124b6822;min-width:220px}
+.accessibility{display:none}
+main{padding-block:16px calc(110px + env(safe-area-inset-bottom,0px))}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:8px max(10px,env(safe-area-inset-right,0px)) calc(8px + env(safe-area-inset-bottom,0px)) max(10px,env(safe-area-inset-left,0px));background:var(--header);backdrop-filter:blur(8px);border-top:1px solid var(--line);box-shadow:0 -6px 20px #124b6814}
+.bottomnav:empty{display:none}
+.bn-inner{max-width:720px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.bn-inner:not(.controls)>button{display:grid;justify-items:center;gap:1px;background:none;border:0;border-radius:14px;padding:6px 2px;font-weight:800;font-size:.78rem;color:var(--muted);min-height:54px}
+.bn-inner:not(.controls)>button .ic{position:relative;font-size:1.45rem;line-height:1.1}
+.bn-inner:not(.controls)>button .dot{position:absolute;top:0;right:-6px;width:9px;height:9px;border-radius:50%;background:var(--coral);border:2px solid var(--paper)}
+.bn-inner:not(.controls)>button[aria-current=page]{background:var(--mint);color:var(--teal)}
+.bn-inner.controls{display:flex;gap:8px;max-width:900px}
+.bn-inner.controls .btn{min-height:50px}
+.bn-inner.controls .grow{flex:1}
+.island-welcome.compact{min-height:0;padding:18px 24px}
+.island-welcome.compact h1{font-size:clamp(1.5rem,3vw,2.2rem)}
+.island-welcome.compact h1 em{display:inline}
+.island-welcome.compact .greeter.av.xl{width:84px;height:84px;top:50%;bottom:auto;transform:translateY(-50%)}
+.gradebar{height:10px;max-width:320px;border-radius:999px;background:#ffffffaa;overflow:hidden;border:1px solid var(--line)}
+.gradebar i{display:block;height:100%;background:var(--teal-2);border-radius:999px}
+.dashboard-grid{margin:16px 0}
+.certbar,.strip{margin:16px 0 0}
+.plan-list li{padding:10px 0}
+.reef-btn{display:block;width:100%;padding:0;border:0;background:none;border-radius:18px}
+.reef.small{display:block;height:110px}
+.lesson-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:14px}
+.lesson-grid .island-app{border-left:6px solid var(--accent)}
+.strand-tag{font-size:.7rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.chips{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;scrollbar-width:thin}
+.chips button{flex:none}
+.page{margin-top:12px;padding:clamp(18px,3vw,32px);min-height:0;gap:12px}
+.page h2 .pic{font-size:1em}
+.lesson-head{margin-top:4px}
+.shop{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.shopitem{padding:10px 8px}
+.shopitem .ic{font-size:2rem}
+.welcome-grid{margin-top:16px}
+.avatar-picker{grid-template-columns:repeat(9,minmax(0,1fr))}
+.avatar-picker button{max-width:60px}
+.kids{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+.kid-card .av.l{width:64px;height:64px}
+@media (max-width:700px){
+  .brand small,.chip .nm,.chip.grown span{display:none}
+  .brand b{font-size:1.2rem}
+  .island-welcome.compact{padding:14px 16px}
+  .island-welcome.compact .island-copy{max-width:calc(100% - 70px)}
+  .island-welcome.compact .greeter.av.xl{width:60px;height:60px;right:12px}
+  .island-welcome.compact .island-copy>p:not(.eyebrow){font-size:.85rem}
+  .lesson-grid{grid-template-columns:1fr;gap:10px}
+  .learning-steps li:not(.current) .lbl{display:none}
+  .learning-steps li{padding:4px 10px}
+  .bn-inner.controls .btn{padding-inline:14px}
+  .lesson-grid .island-copy-sm .d{display:none}
+  .lesson-grid .island-app{padding:9px;grid-template-columns:54px minmax(0,1fr)}
+  .lesson-grid .island-pic{min-height:54px;font-size:1.8rem}
+  .avatar-picker{grid-template-columns:repeat(6,minmax(0,1fr))}
+  .panel{padding:16px;gap:10px}
+  .reward-panel h2{font-size:1.3rem}
+  .welcome-grid .panel:first-child .plan-list{display:none}
+}
+
 .hubpanel{margin-top:22px}
 .hubpanel a{font-weight:700}
+/* slimmer "Back to Atollingo" bar so the lessons start higher up */
+.atollingo-return{padding:6px clamp(12px,3vw,28px)}
+.atollingo-return a{min-height:36px;padding:2px 14px 2px 4px;box-shadow:0 2px 0 #087b94;font-size:14px}
+.atollingo-return-icon{width:28px;height:28px;font-size:18px}
